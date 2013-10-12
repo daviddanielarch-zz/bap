@@ -1,11 +1,13 @@
 import simplejson
 import pprint
 import dumper
-
-data = simplejson.load(file('main2.json','r'))
-#pprint.pprint(data)
+import copy
 
 def get_calls_address(data):
+	"""
+	Returns a dict with subfunctions addresses as keys and 
+	call places as values
+	"""
 	calls = {}
 	for elem in data:
 		if is_instruction(elem):
@@ -16,14 +18,39 @@ def get_calls_address(data):
 					calls[dest].append(address)
 				else:
 					calls[dest] = [address]
-#				calls.append((address,int(asm.split()[1],16)))
 	return calls
 
 
 
 
 def fix_single_function(ret_address,call_address,data):
-	#print "Fixing function at address 0x%x with ret address 0x%x" % (call_address,ret_address)
+	"""
+	Takes a function starting at @call_addres and replaces 
+	the ret address with @ret_address
+	"""
+	start_found = False
+
+	for elem in data:
+
+		if is_instruction(elem):
+			(address,asm) = get_asm(elem)
+			if address == call_address:
+				
+				start_found = True
+				#print "Start found"
+
+		if is_jmp(elem) and start_found:
+			if 'ret' in elem['jmp']['attributes'][0]['strattr']:
+				elem['jmp']['exp'] =  {'inte': {'int': str(ret_address), 'typ': {'reg': 32}}}
+				elem['jmp']['attributes'] = [{'strattr': 'fixed'}]
+				return
+
+	raise "Bad start address"
+
+def fix_call(new_jmp_address,call_address,data):
+	"""
+	Replace the jmp address from @call_addres with @new_jmp_address
+	"""
 	start_found = False
 	
 	for elem in data:
@@ -36,15 +63,17 @@ def fix_single_function(ret_address,call_address,data):
 				#print "Start found"
 
 		if is_jmp(elem) and start_found:
-			#print elem
-			if 'ret' in elem['jmp']['attributes'][0]['strattr']:
-				elem['jmp']['exp'] =  {'inte': {'int': str(ret_address), 'typ': {'reg': 32}}}
-				elem['jmp']['attributes'] = [{'strattr': 'fixed'}]
+			if 'call' in elem['jmp']['attributes'][0]['strattr']:
+				elem['jmp']['exp'] =  {'inte': {'int': new_jmp_address, 'typ': {'reg': 32}}}
+				#elem['jmp']['attributes'] = [{'strattr': 'fixed'}]
 				return
 
 	raise "Bad start address"
 
 def get_function(call_address,data):
+	"""
+	Get the function starting at @call_address, get elements until ret
+	"""
 	function = []
 	start_found = False
 	
@@ -63,7 +92,6 @@ def get_function(call_address,data):
 		if is_jmp(elem) and start_found:
 			#print elem
 			if 'ret' in elem['jmp']['attributes'][0]['strattr']:
-				function.append(elem)
 				return function
 
 
@@ -79,6 +107,9 @@ def get_asm(elem):
 	return (address,asm)
 
 def is_jmp(elem):
+	"""
+	Check if the element is a jmp
+	"""
 	if 'jmp' in elem.keys():
 		return True
 	else:
@@ -97,7 +128,24 @@ def is_instruction(elem):
 			return False
 	return
 
+def is_label(elem):
+	"""
+	Check whetever the passed element is a label.
+	"""
+	if 'label_stmt' in elem.keys():
+		stmt = elem['label_stmt']
+		attrs = stmt['attributes']
+		if not attrs:
+			return True
+		else:
+			return False
+	return
+
 def fix_final_ret(data):
+	"""
+	Replaces the last ret of the program with a halt instruction
+	This is needed in order to be able to use topredicate
+	"""
 	for i,elem in enumerate(data):
 		if is_jmp(elem):
 			#print elem
@@ -107,16 +155,61 @@ def fix_final_ret(data):
 
 	raise "Ret Not Found"
 
+def max(addr1,addr2):
+	if addr1 < addr2:
+		return addr2
+	else:
+		return addr1
 
-calles =  get_calls_address(data)
-#print calles
-for call in calles:
-	if len(calles[call]) ==1:
-		fix_single_function(calles[call][0]+5,call,data)
+def get_max_address(data):
+	"""
+	Get the maxium address of the program
+	"""
+	max_address = 0
+	for elem in data:
+		if is_instruction(elem):
+			(address,asm) = get_asm(elem)
+			max_address = max(address,max_address) 
 
-fix_final_ret(data)
+	return max_address
 
-#pprint.pprint(fix_single_function(calles[4198400][0]+4,4198400,data))
-print dumper.json_to_il(data)
+def rebase_function(function,rebase):
+	"""
+	Rebase all addresses from a functionn
+	"""
+	for elem in function:
+		if is_instruction(elem):
+			address = elem['label_stmt']['label']['addr']
+			elem['label_stmt']['label']['addr'] = address + rebase
 
+		if is_label(elem):
+			label = elem['label_stmt']['label']['name']
+			new_label = "pc_0x%x" % (int(label[3:],16)+rebase)
+			elem['label_stmt']['label']['name'] = new_label
+
+
+def main():
+
+	json_data = simplejson.load(file('main3.json','r'))
+	calles =  get_calls_address(json_data)
+
+	for call in calles:
+		if len(calles[call]) == 1:
+			fix_single_function(calles[call][0]+5,call,json_data)
+		else:
+			function = copy.deepcopy(get_function(call,json_data))
+			fix_single_function(calles[call][0]+5,call,json_data)
+			max_address = get_max_address(json_data)
+			for source in calles[call][1:]:
+				new_function = copy.deepcopy(function)
+				rebase_function(new_function,0x1000) # Might need to change
+				fix_single_function(source+5,call+0x1000,new_function)
+				fix_call(call+0x1000,source,json_data)
+				json_data += new_function
+		
+	fix_final_ret(json_data)
+	print dumper.json_to_il(json_data)
+
+if __name__ == '__main__':
+	main()
 

@@ -20,6 +20,9 @@ def json_to_il(data):
 	return il_text
 
 def convert_to_text(elem):
+	"""
+	Converter dispatcher according to the instruction type
+	"""
 	cmd = elem.keys()[0]
 	if cmd == 'label_stmt' :
 		return label_stmt_to_text(elem)
@@ -31,6 +34,9 @@ def convert_to_text(elem):
 		return halt_to_text(elem)
 
 def label_stmt_to_text(elem):
+	"""
+	Take a label_stmt element and return the text
+	"""
 	attrs = elem['label_stmt']['attributes'] 
 	if attrs:
 		asm = attrs[0]['asm']
@@ -41,13 +47,37 @@ def label_stmt_to_text(elem):
 		return 'label %s' % name
 
 def jmp_to_text(elem):
+	"""
+	Take a jmp element and return the text
+	"""
 	strattr = elem['jmp']['attributes'][0]['strattr']
 	return 'jmp %s @str "%s"' % (get_exp(elem['jmp']['exp']),strattr)
 
 def halt_to_text(elem):
+	"""
+	Take a halt element and return the text
+	"""
 	return "halt true"		
 
+def move_to_text(elem):
+	"""
+	Take a move element and return the text
+	"""
+	var = get_var(elem['move']['var'])
+	exp_val = get_exp(elem['move']['exp'])
+	return "%s = %s" % (var,exp_val)
+
+"""
+All the expresion are of the form:
+	var = expresion
+The next functions are in charge of getting the text values of
+vars and expressions.
+"""
+
 def get_var(var):
+	"""
+	Get the var value of an element (left assigment part)
+	"""
 	name = var['name']
 	if 'tmem' in var['typ']:
 		typ = var['typ']['tmem']['index_type']['reg']
@@ -60,12 +90,11 @@ def get_var(var):
 			typ = 'u%s' % typ
 		return "%s:%s" % (name,typ)
 
-def move_to_text(elem):
-	var = get_var(elem['move']['var'])
-	exp_val = get_exp(elem['move']['exp'])
-	return "%s = %s" % (var,exp_val)
 
 def get_exp(exp):
+	"""
+	Get the expresion value of an element (right assigment part)
+	"""
 	if 'var' in exp:
 		return get_var(exp['var'])
 
@@ -122,10 +151,11 @@ def get_exp(exp):
 
 		return "%s[%s, %s]:u%d" % (memory,address,endian_value,typ)
 
-	#print exp
+def main():
+	data = simplejson.load(file('main2.json','r'))
 
-data = simplejson.load(file('main2.json','r'))
-#print json_to_il(data)
-#print "\n".join(json_to_il(data).split('\n')[:34])
+if __name__ == '__main__':
+	main()
+
 
 
