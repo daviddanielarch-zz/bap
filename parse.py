@@ -1,3 +1,7 @@
+"""
+This module takes a json file with BAP IL representation and does the inlining 
+of all the call instructions, enabling interprocedural verifications on BAP.
+"""
 import simplejson
 import pprint
 import dumper
@@ -148,10 +152,11 @@ def fix_final_ret(data):
 	"""
 	for i,elem in enumerate(data):
 		if is_jmp(elem):
-			#print elem
-			if 'ret' in elem['jmp']['attributes'][0]['strattr']:
-				data[i] = {'halt': {'attributes': [], 'exp': {'inte': {'int': '1', 'typ': {'reg': 1}}}}}
-				return
+			if elem['jmp']['attributes']:
+				#print elem
+				if 'ret' in elem['jmp']['attributes'][0]['strattr']:
+					data[i] = {'halt': {'attributes': [], 'exp': {'inte': {'int': '1', 'typ': {'reg': 1}}}}}
+					return
 
 	raise "Ret Not Found"
 
@@ -190,9 +195,9 @@ def rebase_function(function,rebase):
 
 def main():
 
-	json_data = simplejson.load(file('main3.json','r'))
+	json_data = simplejson.load(file('main.json','r'))
 	calles =  get_calls_address(json_data)
-
+	#print calles
 	for call in calles:
 		if len(calles[call]) == 1:
 			fix_single_function(calles[call][0]+5,call,json_data)

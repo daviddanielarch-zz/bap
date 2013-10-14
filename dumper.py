@@ -1,7 +1,14 @@
+"""
+This module takes a json file exported by using the toil -json utility on BAP
+and returns a valid BAP IL file.
+"""
+import pprint
 import simplejson
 symbol = {}
 symbol['minus'] = '-'
 symbol['plus'] = '+'
+symbol['times'] = '*'
+symbol['neq'] = '<>'
 symbol['lt'] = '<'
 symbol['eq'] = '=='
 symbol['andbop'] = '&'
@@ -12,6 +19,7 @@ symbol['unop'] = '~'
 cast = {}
 cast['cast_low'] = 'low'
 cast['cast_high'] = 'high'
+cast['cast_signed'] = 'extend'
 
 def json_to_il(data):
 	il_text = ""
@@ -24,6 +32,8 @@ def convert_to_text(elem):
 	Converter dispatcher according to the instruction type
 	"""
 	cmd = elem.keys()[0]
+	#print cmd
+	#print elem
 	if cmd == 'label_stmt' :
 		return label_stmt_to_text(elem)
 	elif cmd == 'move':
@@ -32,7 +42,29 @@ def convert_to_text(elem):
 		return jmp_to_text(elem)
 	elif cmd == 'halt':
 		return halt_to_text(elem)
+	elif cmd == 'cjmp':
+		return cjmp_to_text(elem)
+	elif cmd == 'comment':
+		return comment_to_text(elem)
+	elif cmd == 'assert_stmt':
+		return assert_to_text(elem)
 
+	raise "asd"
+
+def assert_to_text(elem):
+	return "assert %s" % get_exp(elem['assert_stmt']['exp'])
+
+def comment_to_text(elem):
+	return "/* %s */"  % elem['comment']['string']
+
+def cjmp_to_text(elem):
+	iftrue_addr = int(elem['cjmp']['iftrue']['inte']['int'])
+	iftrue_type = elem['cjmp']['iftrue']['inte']['typ']['reg']
+	iffalse = elem['cjmp']['iffalse']['lab']
+	cond = get_exp(elem['cjmp']['cond'])
+	return 'cjmp %s, 0x%x:u%d, "%s"' % (cond,iftrue_addr,iftrue_type,iffalse)
+
+#cjmp ~(R_SF:bool ^ R_OF:bool), 0x401071:u32, "nocjmp0"
 def label_stmt_to_text(elem):
 	"""
 	Take a label_stmt element and return the text
@@ -50,8 +82,13 @@ def jmp_to_text(elem):
 	"""
 	Take a jmp element and return the text
 	"""
-	strattr = elem['jmp']['attributes'][0]['strattr']
-	return 'jmp %s @str "%s"' % (get_exp(elem['jmp']['exp']),strattr)
+
+	if elem['jmp']['attributes']:
+		strattr = elem['jmp']['attributes'][0]['strattr']
+		return 'jmp %s @str "%s"' % (get_exp(elem['jmp']['exp']),strattr)
+	else:
+		return 'jmp %s' % get_exp(elem['jmp']['exp'])
+
 
 def halt_to_text(elem):
 	"""
@@ -92,6 +129,7 @@ def get_var(var):
 
 
 def get_exp(exp):
+	#pprint.pprint(exp)
 	"""
 	Get the expresion value of an element (right assigment part)
 	"""
@@ -101,10 +139,16 @@ def get_exp(exp):
 	if 'inte' in exp:
 		value = int(exp['inte']['int'])
 		typ = exp['inte']['typ']['reg']
-		if value < 0xa:
-			return "%x:u%d" % (value,typ)
+		if typ == 1:
+			if value == 0:
+				return 'false'
+			else:
+				return 'true'
 		else:
-			return "0x%x:u%d" % (value,typ)
+			if value < 0xa:
+				return "%x:u%d" % (value,typ)
+			else:
+				return "0x%x:u%d" % (value,typ)
 
 	if 'cast' in exp:
 		typ = exp['cast']['new_type']['reg']
@@ -113,10 +157,16 @@ def get_exp(exp):
 			typ = 'bool'
 		else:
 			typ = 'u%s' % typ
+		#print pprint.pprint(exp)
 		return "%s:%s(%s)" % (cast[cast_type],typ,get_exp(exp['cast']['exp']))
 
 	if 'unop' in exp:
-		return "~%s" % get_exp(exp['unop']['exp'])
+		if exp['unop']['unop_type'] == 'neg':
+			return "-(%s)" % get_exp(exp['unop']['exp'])
+		elif exp['unop']['unop_type'] == 'not':
+			return "~(%s)" % get_exp(exp['unop']['exp'])
+		else:
+			raise "New unop_type"
 		
 	if 'binop' in exp:
 		op = exp['binop']['binop_type']
@@ -151,8 +201,15 @@ def get_exp(exp):
 
 		return "%s[%s, %s]:u%d" % (memory,address,endian_value,typ)
 
+	if 'unknown' in exp:
+		return 'unknown "%s":bool' % exp['unknown']['string']
+
+	#print exp
+	#raise "Unknown command"
+
 def main():
-	data = simplejson.load(file('main2.json','r'))
+	data = simplejson.load(file('main.json','r'))
+	#pprint.pprint(data)
 
 if __name__ == '__main__':
 	main()
