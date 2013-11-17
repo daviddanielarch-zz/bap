@@ -31,6 +31,7 @@ def convert_to_text(elem):
 	"""
 	Converter dispatcher according to the instruction type
 	"""
+	#print elem
 	cmd = elem.keys()[0]
 	#print cmd
 	#print elem
@@ -58,36 +59,51 @@ def comment_to_text(elem):
 	return "/* %s */"  % elem['comment']['string']
 
 def cjmp_to_text(elem):
-	iftrue_addr = int(elem['cjmp']['iftrue']['inte']['int'])
-	iftrue_type = elem['cjmp']['iftrue']['inte']['typ']['reg']
-	iffalse = elem['cjmp']['iffalse']['lab']
+	if 'inte' in elem['cjmp']['iftrue'].keys():
+		iftrue_addr = int(elem['cjmp']['iftrue']['inte']['int'])
+		iftrue_type = elem['cjmp']['iftrue']['inte']['typ']['reg']
+		iftrue = "0x%x:u%d" % (iftrue_addr,iftrue_type)
+	else:
+		iftrue = '"%s"' % elem['cjmp']['iftrue']['lab']
+
+	if 'inte' in elem['cjmp']['iffalse'].keys():
+		iftrue_addr = int(elem['cjmp']['iffalse']['inte']['int'])
+		iftrue_type = elem['cjmp']['iffalse']['inte']['typ']['reg']
+		iftrue = "0x%x:u%d" % (iffalse_addr,iffalse_type)
+	else:
+		iffalse = '"%s"' % elem['cjmp']['iffalse']['lab']
+
 	cond = get_exp(elem['cjmp']['cond'])
-	return 'cjmp %s, 0x%x:u%d, "%s"' % (cond,iftrue_addr,iftrue_type,iffalse)
+	return 'cjmp %s, %s , %s' % (cond,iftrue,iffalse)
 
 #cjmp ~(R_SF:bool ^ R_OF:bool), 0x401071:u32, "nocjmp0"
 def label_stmt_to_text(elem):
 	"""
 	Take a label_stmt element and return the text
-	"""
-	attrs = elem['label_stmt']['attributes'] 
-	if attrs:
-		asm = attrs[0]['asm']
-		address = elem['label_stmt']['label']['addr']
+	""" 
+	address = elem['label_stmt']['label'].get('addr',None)
+	if address:
+		asm = elem['label_stmt']['attributes'][0]['asm']
 		return 'addr 0x%x @asm "%s" ' % (address,asm)		
 	else:
 		name = elem['label_stmt']['label']['name']
-		return 'label %s' % name
+		attrs = elem['label_stmt']['attributes']
+		if attrs:
+			asm = elem['label_stmt']['attributes'][0]['asm']
+			return 'label %s @asm "%s" ' % (name, asm)		
+		else:
+			return 'label %s' % name
+
 
 def jmp_to_text(elem):
 	"""
 	Take a jmp element and return the text
 	"""
-
 	if elem['jmp']['attributes']:
 		strattr = elem['jmp']['attributes'][0]['strattr']
 		return 'jmp %s @str "%s"' % (get_exp(elem['jmp']['exp']),strattr)
 	else:
-		return 'jmp %s' % get_exp(elem['jmp']['exp'])
+		return 'jmp "%s"' % get_exp(elem['jmp']['exp'])
 
 
 def halt_to_text(elem):
@@ -200,19 +216,32 @@ def get_exp(exp):
 		typ = exp['load']['typ']['reg']
 
 		return "%s[%s, %s]:u%d" % (memory,address,endian_value,typ)
+	if 'lab' in exp:
+		return exp['lab']
 
 	if 'unknown' in exp:
 		return 'unknown "%s":bool' % exp['unknown']['string']
 
-	#print exp
-	#raise "Unknown command"
+	if 'ite' in exp:
+		#"R_CF:bool = if T_t_87:u32 == 0:u32 then false else true"
+		 return "if %s then false else true" % get_exp(exp['ite']['condition'])
+	if 'extract' in exp:
+		return 'extract:%d:%d:[%s]' % (exp['extract']['hbit'], 
+						exp['extract']['lbit'], 
+						get_exp(exp['extract']['exp']))
 
-def main():
-	data = simplejson.load(file('main.json','r'))
-	#pprint.pprint(data)
+	if 'concat' in exp:
+		return "concat:[%s][%s]" % (get_exp(exp['concat']['le']),get_exp(exp['concat']['re']))	
+	pprint.pprint(exp)
+	#concat:[extract:31:8:[R_EAX:u32]][mem:?u32[R_ESI:u32, e_little]:u8]
+	raise "Unknown command"
 
-if __name__ == '__main__':
-	main()
+#def main():
+#	data = simplejson.load(file('main.json','r'))
+#	#pprint.pprint(data)
+
+#if __name__ == '__main__':
+#	main()
 
 
 
