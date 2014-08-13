@@ -234,6 +234,11 @@ def fix_copy_function(function,call_label,ret_address):
 	Fix a duplicate function
 	"""
 	for i,elem in enumerate(function):
+		if is_jmp(elem):
+			if 'lab' in elem['jmp']['exp']:
+				old_label = elem['jmp']['exp']['lab']
+				if 'ret' not in old_label:
+					elem['jmp']['exp'] = {u'lab': '%s_%s' % (call_label , old_label) }
 
 		if is_instruction(elem):
 			(address,asm) = get_asm(elem)
@@ -313,7 +318,7 @@ def main():
 
 	new_il = inline_calls(main, json_data, 0, relocations)
 	check_stack_overflow(new_il)
-	print dumper.json_to_il(new_il)
+	print "/*entry node*/\n" + dumper.json_to_il(new_il)
 
 
 if __name__ == '__main__':

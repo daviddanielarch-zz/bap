@@ -1,3 +1,4 @@
+/*entry node*/
 addr 0x804843c @asm "push   %ebp"
 label pc_0x804843c
 T_t:u32 = R_EBP:u32

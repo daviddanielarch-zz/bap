@@ -1,5 +1,4 @@
 addr 0x80482f0 @asm "push   %edi"
-cjmp R_ECX:u32 == 0:u32, "pc_0x0", "pc_0x0"
 label pc_0x0
 T_t:u32 = R_EDI:u32
 R_ESP:u32 = R_ESP:u32 - 4:u32
@@ -28,16 +27,17 @@ label pc_0xf
 R_DFLAG:u32 = 1:u32
 addr 0x10 @asm "rep movsb %ds:(%esi),%es:(%edi)"
 label pc_0x10
-cjmp R_ECX:u32 == 0:u32, 0x12:u32, "nocjmp1"
+cjmp R_ECX:u32 == 0:u32, "cjmp0_1", "nocjmp1"
 label nocjmp1
 mem:?u32 =
   mem:?u32 with [R_EDI:u32, e_little]:u8 = mem:?u32[R_ESI:u32, e_little]:u8
 R_ESI:u32 = R_ESI:u32 + R_DFLAG:u32
 R_EDI:u32 = R_EDI:u32 + R_DFLAG:u32
 R_ECX:u32 = R_ECX:u32 - 1:u32
-cjmp R_ECX:u32 == 0:u32, 0x12:u32, "nocjmp0"
+cjmp R_ECX:u32 == 0:u32, "cjmp0_1", "nocjmp0"
 label nocjmp0
-jmp 0x10:u32
+jmp "pc_0x10"
+label cjmp0_1
 addr 0x12 @asm "pop    %edi"
 label pc_0x12
 R_EDI:u32 = mem:?u32[R_ESP:u32, e_little]:u32
