@@ -26,11 +26,14 @@ class Register(BasicType):
         self.bits = bits
     
     def __repr__(self):
-        return 'u{0}'.format(str(self.bits))
+        if self.bits == 1:
+            return 'bool'
+        else:
+            return 'u{0}'.format(str(self.bits))
 
 class TMem(BasicType):
     def __init__(self, index_type=None):
         self.index_type = index_type
     
     def __repr__(self):
-        return 'u{0}'.format(str(self.index_type))
+        return '?u{0}'.format(str(self.index_type))

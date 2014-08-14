@@ -24,15 +24,21 @@ class Move(Statement):
         self.attrs = attrs
 
     def __repr__(self):
-        return '{0} = {1}'.format(self.var, self.exp)
-        
+        if self.attrs:
+            return '{0} = {1} {2}'.format(self.var, self.exp, self.attrs)
+        else:
+            return '{0} = {1}'.format(self.var, self.exp)
+            
 class Jmp(Statement):
     def __init__(self, exp=None, attrs=None):
         self.exp = exp
         self.attrs = attrs
 
     def __repr__(self):
-        return 'jmp {0}'.format(self.exp)
+        if self.attrs:
+            return 'jmp {0} {1}'.format(self.exp, self.attrs)
+        else:
+            return 'jmp {0}'.format(self.exp)
         
 class CJmp(Statement):
     def __init__(self,  cond = None, iftrue=None, iffalse=None, attrs=None):
@@ -42,9 +48,15 @@ class CJmp(Statement):
         self.attrs = attrs
 
     def __repr__(self):
-        return 'cjmp {0}, {1}, {2}'.format(self.cond, 
-                                            self.iftrue, 
-                                            self.iffalse)
+        if self.attrs:
+            return 'cjmp {0}, {1}, {2} {4}'.format(self.cond, 
+                                                self.iftrue, 
+                                                self.iffalse,
+                                                self.attrs)
+        else:                                            
+            return 'cjmp {0}, {1}, {2}'.format(self.cond, 
+                                                self.iftrue, 
+                                                self.iffalse)
 
 class Label(Statement):
     def __init__(self,  label = None, attrs=None):
@@ -71,7 +83,10 @@ class Halt(Statement):
         self.attrs = attrs
 
     def __repr__(self):
-        return 'halt {0}'.format(self.exp)
+        if self.attrs:
+            return 'halt {0} {1}'.format(self.exp, self.attr)
+        else:
+            return 'halt {0}'.format(self.exp)
         
 class Assert(Statement):
     def __init__(self,  exp=None, attrs=None):
@@ -83,6 +98,9 @@ class Assert(Statement):
         self.attrs = attrs
 
     def __repr__(self):
-        return 'assert {0}'.format(self.exp)
+        if self.attr:
+            return 'assert {0}'.format(self.exp)
+        else:
+            return 'assert {0} {1}'.format(self.exp, self.attrs)
         
 
