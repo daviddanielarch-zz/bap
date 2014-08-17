@@ -6,6 +6,11 @@ class Statement(object):
     
 class Move(Statement):
     def __init__(self,  var=None, exp=None, attrs=None):
+        """
+        @label: Variable
+        @exp: Exp
+        @attrs: List of atributes get by parse_attrs
+        """
         self.var = var
         self.exp = exp
         self.attrs = attrs
@@ -18,6 +23,10 @@ class Move(Statement):
             
 class Jmp(Statement):
     def __init__(self, exp=None, attrs=None):
+        """
+        @exp: Exp
+        @attrs: List of atributes get by parse_attrs
+        """    
         self.exp = exp
         self.attrs = attrs
 
@@ -29,6 +38,12 @@ class Jmp(Statement):
         
 class CJmp(Statement):
     def __init__(self,  cond = None, iftrue=None, iffalse=None, attrs=None):
+        """
+        @cond: Exp
+        @iftrue: Exp
+        @iffalse: Exp
+        @attrs: List of atributes get by parse_attrs
+        """    
         self.cond = cond
         self.iftrue = iftrue
         self.iffalse = iffalse
@@ -49,7 +64,7 @@ class Label(Statement):
     def __init__(self,  label = None, attrs=None):
         """
         @label: LabelType
-        @attrs: 
+        @attrs: List of atributes get by parse_attrs
         """
         self.label = label
         self.attrs = attrs
@@ -63,8 +78,8 @@ class Label(Statement):
 class Halt(Statement):
     def __init__(self,  exp=None, attrs=None):
         """
-        @label: Exp type.
-        @attrs: 
+        @label: Exp
+        @attrs: List of atributes get by parse_attrs
         """
         self.exp = exp
         self.attrs = attrs
@@ -78,22 +93,23 @@ class Halt(Statement):
 class Special(Statement):
     def __init__(self,  string=None, attrs=None):
         """
-        @attrs: 
+        @string: string
+        @attrs: List of atributes get by parse_attrs
         """
         self.string = string
         self.attrs = attrs
 
     def __repr__(self):
         if self.attrs:
-            return 'special {0} {1}'.format(self.string, self.attr)
+            return 'special "{0}" {1}'.format(self.string, self.attr)
         else:
-            return 'special {0}'.format(self.string)
+            return 'special "{0}"'.format(self.string)
                     
 class Assert(Statement):
     def __init__(self,  exp=None, attrs=None):
         """
-        @label: Exp type.
-        @attrs: 
+        @exp: Exp type.
+        @attrs: List of atributes get by parse_attrs
         """
         self.exp = exp
         self.attrs = attrs
@@ -107,8 +123,8 @@ class Assert(Statement):
 class Comment(Statement):
     def __init__(self,  string=None, attrs=None):
         """
-        @label: Exp type.
-        @attrs: 
+        @label: string.
+        @attrs: List of atributes get by parse_attrs
         """
         self.string = string
         self.attrs = attrs

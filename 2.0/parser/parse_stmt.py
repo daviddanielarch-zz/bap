@@ -42,7 +42,7 @@ def parse_stmt_cjmp(data):
 
 def parse_stmt_special(data):
     string = data['string']
-    attrs = parse_attributes(data['attributes'])
+    attrs = parse_attrs(data['attributes'])
     return Special(string, attrs)
 
 def parse_stmt_move(data):

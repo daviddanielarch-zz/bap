@@ -20,6 +20,10 @@ class Variable(Exp):
             
 class Int(Exp):
     def __init__(self, number=None, typ=None):
+        """
+        @number: numeric value.
+        @typ: BasicType
+        """    
         self.inte = int(number)
         self.typ = typ
 
@@ -41,6 +45,11 @@ int_type = type(Int(0))
 
 class BinOp(Exp):
     def __init__(self, binop_type=None, lexp=None,  rexp=None):
+        """
+        @binop_type: binop_types
+        @lexp: Exp
+        @rexp: Exp        
+        """       
         self.binop_type = binop_type
         self.lexp = lexp
         self.rexp = rexp
@@ -60,6 +69,11 @@ class BinOp(Exp):
                                     final_rexp)
 class Cast(Exp):
     def __init__(self, cast_type=None, new_type=None, exp=None):
+        """
+        @cast_type: cast_types
+        @new_type: BasicType
+        @exp: Exp        
+        """       
         self.cast_type = cast_type
         self.new_type = new_type
         self.exp = exp
@@ -71,6 +85,10 @@ class Cast(Exp):
                                                  
 class UnOp(Exp):
     def __init__(self, unop_type=None, exp=None):
+        """
+        @unop_type: unop_types
+        @exp: Exp        
+        """           
         self.unop_type = unop_type
         self.exp = exp
         
@@ -80,6 +98,12 @@ class UnOp(Exp):
                                                  
 class Load(Exp):
     def __init__(self, address=None, memory=None, endian=None, typ=None):
+        """
+        @address: Exp
+        @memory: Exp
+        @endian: Exp        
+        @typ: BasicType
+        """           
         self.address = address
         self.memory = memory
         self.endian = endian
@@ -93,7 +117,14 @@ class Load(Exp):
 
 class Store(Exp):
     def __init__(self, address=None, memory=None, endian=None, typ=None,
-                 value=None):
+                 value=None):                 
+        """
+        @address: Exp
+        @memory: Exp
+        @endian: Exp        
+        @typ: BasicType
+        @value: Exp
+        """                            
         self.address = address
         self.memory = memory
         self.endian = endian
@@ -109,6 +140,10 @@ class Store(Exp):
                                                                                               
 class Unknown(Exp):
     def __init__(self, string=None, typ=None):
+        """
+        @string: string     
+        @typ: Exp
+        """               
         self.string = string
         self.typ = typ
         
@@ -117,6 +152,11 @@ class Unknown(Exp):
                                         self.typ)
 class Ite(Exp):
     def __init__(self, condition=None, iftrue=None, iffalse=None):
+        """
+        @condition: Exp
+        @iftrue: Exp
+        @iffalse: Exp        
+        """               
         self.condition = condition
         self.iftrue = iftrue
         self.iffalse = iffalse
@@ -128,6 +168,9 @@ class Ite(Exp):
                                                 
 class Lab(Exp):
     def __init__(self, string):
+        """
+        @address: string
+        """               
         self.string = string
         
     def __repr__(self):
@@ -135,6 +178,11 @@ class Lab(Exp):
 
 class Extract(Exp):
     def __init__(self, hbit=None, lbit=None, exp=None):
+        """
+        @hbit: Integer
+        @lbit: Integer
+        @exp: Exp        
+        """               
         self.hbit = hbit
         self.lbit = lbit
         self.exp = exp
@@ -146,6 +194,10 @@ class Extract(Exp):
 
 class Concat(Exp):
     def __init__(self, le=None, re=None):
+        """
+        @le: Exp
+        @re: Exp  
+        """               
         self.le = le
         self.re = re
         
@@ -155,6 +207,11 @@ class Concat(Exp):
                                           
 class Let(Exp):
     def __init__(self, var=None, e1=None, e2=None):
+        """
+        @var: Variable
+        @e1: Exp
+        @e2: Exp        
+        """               
         self.var = var
         self.e1 = e1
         self.e2 = e2        

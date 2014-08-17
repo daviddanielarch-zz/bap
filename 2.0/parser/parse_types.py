@@ -14,4 +14,3 @@ def parse_label_type(data):
         return StrLabel(data['name'])
     else:
         return AddrLabel(data['addr'])
-    

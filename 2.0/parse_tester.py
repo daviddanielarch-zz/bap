@@ -18,8 +18,9 @@ move_cast = {"move":{"var":{"name":"R_OF","id":15,"typ":{"reg":1}},"exp":{"cast"
 
 move_unop = {"move":{"var":{"name":"R_PF","id":11,"typ":{"reg":1}},"exp":{"unop":{"unop_type":"not","exp":{"cast":{"cast_type":"cast_low","new_type":{"reg":1},"exp":{"binop":{"binop_type":"xor","lexp":{"binop":{"binop_type":"xor","lexp":{"binop":{"binop_type":"xor","lexp":{"binop":{"binop_type":"xor","lexp":{"binop":{"binop_type":"xor","lexp":{"binop":{"binop_type":"xor","lexp":{"binop":{"binop_type":"xor","lexp":{"binop":{"binop_type":"rshift","lexp":{"var":{"name":"R_ESP","id":1,"typ":{"reg":32}}},"rexp":{"inte":{"int":"7","typ":{"reg":32}}}}},"rexp":{"binop":{"binop_type":"rshift","lexp":{"var":{"name":"R_ESP","id":1,"typ":{"reg":32}}},"rexp":{"inte":{"int":"6","typ":{"reg":32}}}}}}},"rexp":{"binop":{"binop_type":"rshift","lexp":{"var":{"name":"R_ESP","id":1,"typ":{"reg":32}}},"rexp":{"inte":{"int":"5","typ":{"reg":32}}}}}}},"rexp":{"binop":{"binop_type":"rshift","lexp":{"var":{"name":"R_ESP","id":1,"typ":{"reg":32}}},"rexp":{"inte":{"int":"4","typ":{"reg":32}}}}}}},"rexp":{"binop":{"binop_type":"rshift","lexp":{"var":{"name":"R_ESP","id":1,"typ":{"reg":32}}},"rexp":{"inte":{"int":"3","typ":{"reg":32}}}}}}},"rexp":{"binop":{"binop_type":"rshift","lexp":{"var":{"name":"R_ESP","id":1,"typ":{"reg":32}}},"rexp":{"inte":{"int":"2","typ":{"reg":32}}}}}}},"rexp":{"binop":{"binop_type":"rshift","lexp":{"var":{"name":"R_ESP","id":1,"typ":{"reg":32}}},"rexp":{"inte":{"int":"1","typ":{"reg":32}}}}}}},"rexp":{"var":{"name":"R_ESP","id":1,"typ":{"reg":32}}}}}}}}},"attributes":[]}}
 
-import json 
-data = json.loads(file('/home/davida/bap-0.7/read_done.json','r').read())
+
+import jsonpickle
+data = jsonpickle.decode(file('/home/davida/bap-0.7/bap/2.0/trace.json','r').read())
 for elem in data:
     print str(parse_statement(elem))
     
