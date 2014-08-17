@@ -1,16 +1,3 @@
-"""
-type stmt =
-|	Move of (var * exp * attrs)	(*	Assign the value on the right to the var on the left	*)
-|	Jmp of (exp * attrs)	(*	Jump to a label/address	*)
-|	CJmp of (exp * exp * exp * attrs)	(*	Conditional jump. If e1 is true, jumps to e2, otherwise jumps to e3	*)
-|	Label of (Type.label * attrs)	(*	A label we can jump to	*)
-|	Halt of (exp * attrs)
-|	Assert of (exp * attrs)
-|	Assume of (exp * attrs)
-|	Comment of (string * attrs)	(*	A comment to be ignored	*)
-|	Special of (string * Var.defuse option * attrs)	(*	A "special" statement. (does magic)
-"""
-
 from bap_exp import *
 from bap_types import *
 
@@ -43,13 +30,13 @@ class Jmp(Statement):
 class CJmp(Statement):
     def __init__(self,  cond = None, iftrue=None, iffalse=None, attrs=None):
         self.cond = cond
-        self.iftrue = var
-        self.iffalse = exp
+        self.iftrue = iftrue
+        self.iffalse = iffalse
         self.attrs = attrs
 
     def __repr__(self):
         if self.attrs:
-            return 'cjmp {0}, {1}, {2} {4}'.format(self.cond, 
+            return 'cjmp {0}, {1}, {2} {3}'.format(self.cond, 
                                                 self.iftrue, 
                                                 self.iffalse,
                                                 self.attrs)
@@ -87,7 +74,21 @@ class Halt(Statement):
             return 'halt {0} {1}'.format(self.exp, self.attr)
         else:
             return 'halt {0}'.format(self.exp)
-        
+
+class Special(Statement):
+    def __init__(self,  string=None, attrs=None):
+        """
+        @attrs: 
+        """
+        self.string = string
+        self.attrs = attrs
+
+    def __repr__(self):
+        if self.attrs:
+            return 'special {0} {1}'.format(self.string, self.attr)
+        else:
+            return 'special {0}'.format(self.string)
+                    
 class Assert(Statement):
     def __init__(self,  exp=None, attrs=None):
         """
@@ -98,9 +99,24 @@ class Assert(Statement):
         self.attrs = attrs
 
     def __repr__(self):
-        if self.attr:
+        if self.attrs:
             return 'assert {0}'.format(self.exp)
         else:
             return 'assert {0} {1}'.format(self.exp, self.attrs)
+            
+class Comment(Statement):
+    def __init__(self,  string=None, attrs=None):
+        """
+        @label: Exp type.
+        @attrs: 
+        """
+        self.string = string
+        self.attrs = attrs
+
+    def __repr__(self):
+        if self.attrs:
+            return '/*{0}*/'.format(self.string)
+        else:
+            return '/*{0}*/ {1}'.format(self.string, self.attrs)            
         
 

@@ -1,3 +1,36 @@
+endianess = {0 : 'e_little', 1 : 'e_big'}
+
+binop_types = {}
+binop_types['plus'] = '+'
+binop_types['minus'] = '-'
+binop_types['times'] = '*'
+binop_types['divide'] = '/'
+binop_types['sdivide'] = '$/'
+binop_types['mod'] = '%'
+binop_types['smod'] = '$%'
+binop_types['lshift'] = '<<'
+binop_types['rshift'] = '>>'
+binop_types['arshift'] = '$>>'
+binop_types['andbop'] = '&'
+binop_types['orbop'] = '|'
+binop_types['xor'] = '^'
+binop_types['eq'] = '=='
+binop_types['neq'] = '<>'
+binop_types['lt'] = '<'
+binop_types['le'] = '<='
+binop_types['slt'] = '$<'
+binop_types['sle'] = '$<='
+
+unop_types = {}
+unop_types['neg'] = '-'
+unop_types['not'] = '~'
+
+cast_types = {}
+cast_types['cast_unsigned'] = 'pad'
+cast_types['cast_signed'] = 'extend'
+cast_types['cast_high'] = 'high'
+cast_types['cast_low'] = 'low'
+
 class Type(object):
     pass
     
