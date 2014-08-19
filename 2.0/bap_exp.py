@@ -167,7 +167,7 @@ class Ite(Exp):
                                                 self.iffalse)
                                                 
 class Lab(Exp):
-    def __init__(self, string):
+    def __init__(self, string=None):
         """
         @address: string
         """               
