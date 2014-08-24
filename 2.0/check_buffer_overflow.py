@@ -20,11 +20,11 @@ def process_main(data, relocations):
     random_name = ''.join(random.choice(random_chars) for _ in range(6))
     new_func_name = 'call%s' % random_name
     
-    _,new_il = copy_function(get_main(statements),functions, "halt", relocations, new_func_name)
+    _,new_il = copy_function(get_main(statements),functions, "the_end", relocations, new_func_name)
     
     # We need to finish the execution with a halt statement
     # We are replacing the ret from main to a jmp to this halt statement
-    halt_label = Label(StrLabel('halt'))    
+    halt_label = Label(StrLabel('the_end'))    
     bool_reg = Register(1)
     true = Int(1,bool_reg)
     halt_true = Halt(true,[]) 
@@ -48,6 +48,7 @@ def copy_function(data, functions, ret_label, relocations, func_name):
     instrs = []
     copied_functions = []
     first_label = None
+    random_name = ''.join(random.choice(random_chars) for _ in range(6))
     
     for stmt in data:
         # We are saving the assembler instruction
@@ -79,7 +80,7 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                                                       stmt.iftrue.string)
             else:
                 address = stmt.iftrue.inte
-                new_lab = Lab('{0}_pc_{1}'.format(func_name, address))
+                new_lab = Lab('{0}_pc_0x{1:x}'.format(func_name, address))
                 stmt.iftrue = new_lab
                 
             if type(stmt.iffalse) == type(Lab()):
@@ -87,7 +88,7 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                                                       stmt.iffalse.string)
             else:
                 address = stmt.iffalse.inte
-                new_lab = Lab('{0}_pc_{1}'.format(func_name, address))
+                new_lab = Lab('{0}_pc_0x{1:x}'.format(func_name, address))
                 stmt.iffalse = new_lab
                 
             instrs.append(stmt)
@@ -97,8 +98,7 @@ def copy_function(data, functions, ret_label, relocations, func_name):
             if type(stmt.exp) == type(Int(0)):
                 address = stmt.exp.inte
                 if address in functions:
-                    random_name = ''.join(random.choice(random_chars) for _ in range(6))
-                    new_func_name = 'call%s' % random_name
+                    new_func_name = 'call_%s' % random_name
                     label, new_function = copy_function(deepcopy(functions[address]), 
                                                         functions, 
                                                         get_ret_label(last_label),
@@ -123,12 +123,12 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                                                             functions, 
                                                             ret_label,
                                                             relocations,
-                                                            func_name)       
+                                                            '%s_%s' % (relocations[address], random_name))       
                             for instr in new_function:
                                 instrs.append(instr)                                                                                   
                                 
                         except:
-                            stmt.exp = Lab(relocations[address])
+                            stmt.exp = Lab(ret_label)
                             instrs.append(stmt)
 
                                                               
