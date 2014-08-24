@@ -1,15 +1,26 @@
 import json
 import string
 import random
+from copy import deepcopy
+from elftools.elf.descriptions import describe_reloc_type
+from elftools.common.py3compat import (
+        ifilter, byte2int, bytes2str, itervalues, str2bytes)
+from elftools.elf.elffile import ELFFile
+from elftools.elf.relocation import RelocationSection
+from elftools.elf.descriptions import describe_reloc_type
+
 from parser.parse_stmt import *
 from bap_stmt import *
 from bap_exp import *
 random_chars = string.ascii_uppercase + string.digits
 
-def process_main(data):
+def process_main(data, relocations):
     statements = [parse_statement(stmt) for stmt in data]
     functions =  get_functions(statements)
-    _,new_il = copy_function(get_main(statements),functions, "halt")
+    random_name = ''.join(random.choice(random_chars) for _ in range(6))
+    new_func_name = 'call%s' % random_name
+    
+    _,new_il = copy_function(get_main(statements),functions, "halt", relocations, new_func_name)
     
     # We need to finish the execution with a halt statement
     # We are replacing the ret from main to a jmp to this halt statement
@@ -27,7 +38,7 @@ def get_ret_label(label):
     name,_,address = label.split('_')
     return '%s_pc_0x%x' % (name, int(address,16) + 5)
     
-def copy_function(data, functions, ret_label):
+def copy_function(data, functions, ret_label, relocations, func_name):
     """
     Return a copy of the fuction with all label_stmt with addresses removed.
     If we have instructions with the same addresses we are going to get errors
@@ -37,8 +48,6 @@ def copy_function(data, functions, ret_label):
     instrs = []
     copied_functions = []
     first_label = None
-    random_name = ''.join(random.choice(random_chars) for _ in range(6))
-    func_name = 'call%s' % random_name
     
     for stmt in data:
         # We are saving the assembler instruction
@@ -88,44 +97,54 @@ def copy_function(data, functions, ret_label):
             if type(stmt.exp) == type(Int(0)):
                 address = stmt.exp.inte
                 if address in functions:
-                    label, new_function = copy_function(functions[address], 
+                    random_name = ''.join(random.choice(random_chars) for _ in range(6))
+                    new_func_name = 'call%s' % random_name
+                    label, new_function = copy_function(deepcopy(functions[address]), 
                                                         functions, 
-                                                        get_ret_label(last_label))
+                                                        get_ret_label(last_label),
+                                                        relocations,
+                                                        new_func_name)
+                                                        
                     stmt.exp = Lab(label)
                     instrs.append(stmt)
                     
                     copied_functions.append(new_function)
-                    #print 'Call to 0x%x found' % stmt.exp.inte
             else:
                 if 'ret' in str(stmt):
                     stmt.exp = Lab(ret_label)
                     instrs.append(stmt)
+                elif 'jmp mem:?u32' in str(stmt):
+                    address = stmt.exp.address.inte
+                    if address in relocations:
+                        function_path = '/home/davida/bap-0.7/bap/asm/%s.json' % relocations[address]
+                        try:
+                            imported_function = [parse_statement(stmt) for stmt in json.loads(open(function_path).read())]
+                            label, new_function = copy_function(imported_function, 
+                                                            functions, 
+                                                            ret_label,
+                                                            relocations,
+                                                            func_name)       
+                            for instr in new_function:
+                                instrs.append(instr)                                                                                   
+                                
+                        except:
+                            stmt.exp = Lab(relocations[address])
+                            instrs.append(stmt)
+
+                                                              
+                    #instrs.append(stmt)
                 else:
                     instrs.append(stmt)
-                #print 'Indirect jump found {0}, doing nothing.'.format(str(stmt))
                 
         # We can append other instruction types without further modifications.
         else:
             instrs.append(stmt)
             
     for copied_func in copied_functions:
-    #    print '"*************************"'
-    #    for elem in copied_func:
-    #        print elem     
-    #    print '"*************************"'
          instrs = instrs + copied_func                                       
-    #import sys
-    #sys.exit(1)    
-    #print '"*********************************************************************************"'     
+             
     return first_label, instrs
                 
-#def inline_functions(function, data):
-#    for stmt in data:
-#        if '@str "call"' in str(stmt):
-#            if stmt.exp.inte in functions:
-                
-            
-
 def get_function(call_address,data):
     """
     Get the function starting at @call_address, get elements until ret.
@@ -186,9 +205,44 @@ def get_functions(data):
                 functions[address] = get_function(address, data)
                 
     return functions
-            			
-data = json.loads(file('/home/davida/bap-0.7/bap/2.0/test.json','r').read())
-new_data = process_main(data)
 
+def get_relocations(fd):
+	""" 
+	Return a dict with the relocations contained in a file
+	"""
+	elffile = ELFFile(fd)
+	relocations = {}
+	has_relocation_sections = False
+	for section in elffile.iter_sections():
+	    if not isinstance(section, RelocationSection):
+		continue
+
+	    has_relocation_sections = True
+	    # The symbol table section pointed to in sh_link
+	    symtable = elffile.get_section(section['sh_link'])
+
+	    for rel in section.iter_relocations():
+		offset = rel['r_offset'] 
+
+		symbol = symtable.get_symbol(rel['r_info_sym'])
+		# Some symbols have zero 'st_name', so instead what's used is
+		# the name of the section they point at
+		if symbol['st_name'] == 0:
+		    symsec = elffile.get_section(symbol['st_shndx'])
+		    symbol_name = symsec.name
+		else:
+		    symbol_name = symbol.name
+		    relocations[offset] = bytes2str(symbol_name)
+
+	return relocations
+	            			
+data = json.loads(file('/home/davida/bap-0.7/read.json','r').read())
+relocations = get_relocations(file('/home/davida/bap-0.7/read','r'))
+
+new_data = process_main(data, relocations)
+statements = [parse_statement(stmt) for stmt in data]
+functions =  get_functions(statements)
+#print functions.keys()
+#_,a = copy_function(functions[functions.keys()[1]], functions, 'halt')
 for elem in new_data:
     print elem     
