@@ -1,6 +1,7 @@
 import json
 import string
 import random
+import argparse
 from copy import deepcopy
 from elftools.elf.descriptions import describe_reloc_type
 from elftools.common.py3compat import (
@@ -13,6 +14,8 @@ from parser.parse_stmt import *
 from bap_stmt import *
 from bap_exp import *
 random_chars = string.ascii_uppercase + string.digits
+
+bof_vars = []
 
 def process_main(data, relocations):
     statements = [parse_statement(stmt) for stmt in data]
@@ -69,7 +72,8 @@ def copy_function(data, functions, ret_label, relocations, func_name):
             if not first_label:
                 first_label = new_label.name
                 
-            # We need the label for the ret    
+            # We need the latest label for the ret instruction at the end
+            # of the next function    
             last_label = new_label.name
                         
         # CJmp uses and address and a label for branching, so we are replacing
@@ -109,14 +113,24 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                     instrs.append(stmt)
                     
                     copied_functions.append(new_function)
+            # If there is an indirect jump we analyze two options
+            # * If the indirect jump is a ret then replace the ret address with
+            #   the corresponding label
+            # * If the indirect's jump address is on the relocations we inline
+            #   the external function call
             else:
                 if 'ret' in str(stmt):
-                    stmt.exp = Lab(ret_label)
+                    bof_var = Variable(10, 'bof_%s' % random_name, Register(32))
+                    bof_vars.append('bof_%s' % random_name)                    
+                    bof_check = Move(bof_var, stmt.exp)
+                    stmt.exp = Lab(ret_label)                    
+                    instrs.append(bof_check)
                     instrs.append(stmt)
                 elif 'jmp mem:?u32' in str(stmt):
                     address = stmt.exp.address.inte
                     if address in relocations:
-                        function_path = '/home/davida/bap-0.7/bap/asm/%s.json' % relocations[address]
+                        function_path = '/home/davida/bap-0.7/bap/2.0/asm/%s.json' % relocations[address]
+                        # If the external function is defined we inline it
                         try:
                             imported_function = [parse_statement(stmt) for stmt in json.loads(open(function_path).read())]
                             label, new_function = copy_function(imported_function, 
@@ -127,19 +141,22 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                             for instr in new_function:
                                 instrs.append(instr)                                                                                   
                                 
+                        # If its not defined replace the jmp address with the
+                        # corresponding label        
                         except:
                             stmt.exp = Lab(ret_label)
                             instrs.append(stmt)
-
-                                                              
-                    #instrs.append(stmt)
+                            
+                # If none of the above cases happens just append the
+                # instruction without any changes.
                 else:
                     instrs.append(stmt)
                 
         # We can append other instruction types without further modifications.
         else:
             instrs.append(stmt)
-            
+
+    # Append to the end all the functions retrieved            
     for copied_func in copied_functions:
          instrs = instrs + copied_func                                       
              
@@ -200,9 +217,16 @@ def get_functions(data):
     functions = {}
     for stmt in data:
         if '@asm "call' in str(stmt):
-            address = int(str(stmt.attrs)[15:-1],16)
-            if address not in functions:
-                functions[address] = get_function(address, data)
+            # Will only work for direct calls
+            try:
+                address = int(str(stmt.attrs)[15:-1],16)
+                if address not in functions:
+                    functions[address] = get_function(address, data)
+                    
+            # This must be an indirect call.
+            except:
+                pass
+
                 
     return functions
 
@@ -210,6 +234,10 @@ def get_relocations(fd):
 	""" 
 	Return a dict with the relocations contained in a file
 	"""
+	if not fd:
+	    print 'Relocations not found'
+	    return {}
+	    
 	elffile = ELFFile(fd)
 	relocations = {}
 	has_relocation_sections = False
@@ -236,13 +264,27 @@ def get_relocations(fd):
 
 	return relocations
 	            			
-data = json.loads(file('/home/davida/bap-0.7/read.json','r').read())
-relocations = get_relocations(file('/home/davida/bap-0.7/read','r'))
 
-new_data = process_main(data, relocations)
-statements = [parse_statement(stmt) for stmt in data]
-functions =  get_functions(statements)
-#print functions.keys()
-#_,a = copy_function(functions[functions.keys()[1]], functions, 'halt')
-for elem in new_data:
-    print elem     
+def main():
+
+    parser = argparse.ArgumentParser(description='Check for buffer overflows on BAP IL.')
+    parser.add_argument('-j', type=argparse.FileType('r'), required=True,
+                   help='JSON file with the BAP IL', dest='json_file')
+    parser.add_argument('-r', type=argparse.FileType('r'), 
+                   help='Binary we got the JSON IL from', dest='reloc_file')
+    parser.add_argument('-o', dest='outfile',type=argparse.FileType('w'), 
+                    default='out.il', help='output file')
+
+    args = parser.parse_args()
+    data = json.loads(args.json_file.read())
+    relocations = get_relocations(args.reloc_file)
+
+    new_data = process_main(data, relocations)
+
+    for elem in new_data:
+        args.outfile.write(str(elem) + '\n')
+
+    print ' | '.join(['(%s:u32 == 0xcafecafe:u32)' % var for var in bof_vars])
+    
+if __name__ == '__main__':
+    main()  
