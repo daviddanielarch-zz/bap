@@ -1,6 +1,7 @@
 import json
 import string
 import random
+import pefile
 import argparse
 from copy import deepcopy
 from elftools.elf.descriptions import describe_reloc_type
@@ -60,6 +61,11 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                 if '@asm' in str(attr):
                     asm = attr
                     
+        # Indirect call (Window's relocations)            
+        elif 'T_target:u32 = mem:?u32' in str(stmt):
+            T_target = stmt.exp.address.inte
+            instrs.append(stmt)
+            
         # Append to the label an unique identifier                     
         elif 'label' in str(stmt):
             new_label = StrLabel('{0}_{1}'.format(func_name ,stmt.label.name))
@@ -126,6 +132,8 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                     stmt.exp = Lab(ret_label)                    
                     instrs.append(bof_check)
                     instrs.append(stmt)
+                    
+                # Linux relocations    
                 elif 'jmp mem:?u32' in str(stmt):
                     address = stmt.exp.address.inte
                     if address in relocations:
@@ -147,8 +155,38 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                             stmt.exp = Lab(ret_label)
                             instrs.append(stmt)
                             
+                # Windows relocations
+                elif 'T_target' in str(stmt):
+                    address = T_target
+                    if address in relocations:
+                        function_path = '/home/davida/bap-0.7/bap/2.0/asm/%s.json' % relocations[address]
+                        # If the external function is defined we inline it
+                        try:
+                            imported_function = [parse_statement(stmt) for stmt in json.loads(open(function_path).read())]
+                            label, new_function = copy_function(imported_function, 
+                                                            functions, 
+                                                            ret_label,
+                                                            relocations,
+                                                            '%s_%s' % (relocations[address], random_name))       
+                                                            
+                            # Remove the last jmp from the ret
+                            # We are inlining the function so we don't need to
+                            # jump anywhere.                                                           
+                            for instr in new_function[:-1]:
+                                instrs.append(instr)                                                                                   
+                                
+                        # If its not defined fix ESP value.  
+                        except:
+                            # ESP = ESP + 4
+                            var = Variable(1, 'R_ESP', Register(32))
+                            exp = BinOp('plus', 
+                                        Variable(1, 'R_ESP', Register(32)), 
+                                        Int(4,Register(32))
+                                        )
+                            instrs.append(Move(var, exp))
+                            
                 # If none of the above cases happens just append the
-                # instruction without any changes.
+                # instruction without any changes.                            
                 else:
                     instrs.append(stmt)
                 
@@ -230,48 +268,57 @@ def get_functions(data):
                 
     return functions
 
-def get_relocations(fd):
-	""" 
-	Return a dict with the relocations contained in a file
-	"""
-	if not fd:
-	    print 'Relocations not found'
-	    return {}
+def get_relocations(filename):
+    """ 
+    Return a dict with the relocations contained in a file
+    """
+    relocations = {}
+    if not filename:
+        print 'Relocations not found'
+        return relocations
 	    
-	elffile = ELFFile(fd)
-	relocations = {}
-	has_relocation_sections = False
-	for section in elffile.iter_sections():
-	    if not isinstance(section, RelocationSection):
-		continue
+    try:
+        pe = pefile.PE(filename)
+        for entry in pe.DIRECTORY_ENTRY_IMPORT:
+            for imp in entry.imports:
+                relocations[imp.address] = imp.name
+                        
+    except pefile.PEFormatError:
+        with file(filename,'r') as fd:
+            elffile = ELFFile(fd)
 
-	    has_relocation_sections = True
-	    # The symbol table section pointed to in sh_link
-	    symtable = elffile.get_section(section['sh_link'])
+            has_relocation_sections = False
+            for section in elffile.iter_sections():
+                if not isinstance(section, RelocationSection):
+                    continue
 
-	    for rel in section.iter_relocations():
-		offset = rel['r_offset'] 
+                has_relocation_sections = True
+                # The symbol table section pointed to in sh_link
+                symtable = elffile.get_section(section['sh_link'])
 
-		symbol = symtable.get_symbol(rel['r_info_sym'])
-		# Some symbols have zero 'st_name', so instead what's used is
-		# the name of the section they point at
-		if symbol['st_name'] == 0:
-		    symsec = elffile.get_section(symbol['st_shndx'])
-		    symbol_name = symsec.name
-		else:
-		    symbol_name = symbol.name
-		    relocations[offset] = bytes2str(symbol_name)
+                for rel in section.iter_relocations():
+                    offset = rel['r_offset'] 
 
-	return relocations
+                    symbol = symtable.get_symbol(rel['r_info_sym'])
+                    # Some symbols have zero 'st_name', so instead what's used is
+                    # the name of the section they point at
+                    if symbol['st_name'] == 0:
+                        symsec = elffile.get_section(symbol['st_shndx'])
+                        symbol_name = symsec.name
+                    else:
+                        symbol_name = symbol.name
+                        relocations[offset] = bytes2str(symbol_name)
+                        
+    return relocations
 	            			
 
 def main():
 
     parser = argparse.ArgumentParser(description='Check for buffer overflows on BAP IL.')
-    parser.add_argument('-j', type=argparse.FileType('r'), required=True,
+    parser.add_argument('-j', required=True, type=argparse.FileType('r'),
                    help='JSON file with the BAP IL', dest='json_file')
-    parser.add_argument('-r', type=argparse.FileType('r'), 
-                   help='Binary we got the JSON IL from', dest='reloc_file')
+    parser.add_argument('-r', help='Binary we got the JSON IL from', 
+                        dest='reloc_file')
     parser.add_argument('-o', dest='outfile',type=argparse.FileType('w'), 
                     default='out.il', help='output file')
 

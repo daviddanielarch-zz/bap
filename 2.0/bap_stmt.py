@@ -101,7 +101,7 @@ class Special(Statement):
 
     def __repr__(self):
         if self.attrs:
-            return 'special "{0}" {1}'.format(self.string, self.attr)
+            return 'special "{0}" {1}'.format(self.string, self.attrs)
         else:
             return 'special "{0}"'.format(self.string)
                     

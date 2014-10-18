@@ -97,7 +97,7 @@ def parse_context_attr(data):
         final_operand = "mem[0x%x]" % operand['mem_operand']['address']
     else:
         final_operand = operand['reg_operand']['name']
-    print usage    
+        
     if usage['read'] and usage['written']:
         final_usage = 'rw'
     elif usage['read']:
