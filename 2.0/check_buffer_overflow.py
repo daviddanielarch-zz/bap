@@ -3,6 +3,8 @@ import string
 import random
 import pefile
 import argparse
+import traceback
+import re
 from copy import deepcopy
 from elftools.elf.descriptions import describe_reloc_type
 from elftools.common.py3compat import (
@@ -18,12 +20,19 @@ random_chars = string.ascii_uppercase + string.digits
 
 bof_vars = []
 
+BUFF_SIZE = 0x1000 # 4KB
+input_address = 0x80000000
+counter = 1
+sys.setrecursionlimit(5000)
+
+function_call_stack = []
+
+
 def process_main(data, relocations):
+    global counter
     statements = [parse_statement(stmt) for stmt in data]
     functions =  get_functions(statements)
-    random_name = ''.join(random.choice(random_chars) for _ in range(6))
-    new_func_name = 'call%s' % random_name
-    
+    new_func_name = 'fun%s' % str(counter)
     _,new_il = copy_function(get_main(statements),functions, "the_end", relocations, new_func_name)
     
     # We need to finish the execution with a halt statement
@@ -42,6 +51,33 @@ def get_ret_label(label):
     name,_,address = label.split('_')
     return '%s_pc_0x%x' % (name, int(address,16) + 5)
     
+def copy_imported_function(address, functions, ret_label, relocations, random_name):
+    global input_address
+    
+    function_path = './asm/%s.json' % relocations[address]
+    
+    try:
+        function_data = open(function_path).read()
+    except:
+        return
+        
+            
+    source_address = input_address + BUFF_SIZE
+    function_data.replace('SOURCE_ADDRESS', str(source_address))
+    function_data = json.loads(function_data)
+    
+    input_address += BUFF_SIZE
+    imported_function = [parse_statement(stmt) for stmt in function_data]
+    label, new_function = copy_function(imported_function, 
+                                    functions, 
+                                    ret_label,
+                                    relocations,
+                                    '%s_%s' % (relocations[address], random_name))
+                                    
+                                    
+    print '[*] %s is taking data from 0x%x' % (label, source_address)   
+    return label, new_function                                     
+                                    
 def copy_function(data, functions, ret_label, relocations, func_name):
     """
     Return a copy of the fuction with all label_stmt with addresses removed.
@@ -49,12 +85,25 @@ def copy_function(data, functions, ret_label, relocations, func_name):
     while parsing the instruction.
     All addresses are replaced with labels. 
     """   
+    global counter
+    func_address = data[0].label.addr
+    
+    # Recursive call detection
+    if func_address in function_call_stack:
+        print "[*] Recursive call detected, we don't support recursive calls"
+        print '[*] Printing call stack'
+        function_call_stack.append(func_address)
+        for depth,elem in enumerate(function_call_stack):
+            print '[*] %s 0x%x' % ('\t' * depth, elem) 
+        sys.exit(1)  
+    else:
+        function_call_stack.append(func_address)
+    
     instrs = []
     copied_functions = []
     first_label = None
-    random_name = ''.join(random.choice(random_chars) for _ in range(6))
-    
     for stmt in data:
+        #random_name = str(counter)
         # We are saving the assembler instruction
         if '@asm' in str(stmt):
             for attr in stmt.attrs:
@@ -62,8 +111,8 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                     asm = attr
                     
         # Indirect call (Window's relocations)            
-        elif 'T_target:u32 = mem:?u32' in str(stmt):
-            T_target = stmt.exp.address.inte
+        elif re.match('T_target[_]*[0-9]*:u32 = ', str(stmt)):
+            T_target = stmt
             instrs.append(stmt)
             
         # Append to the label an unique identifier                     
@@ -108,7 +157,8 @@ def copy_function(data, functions, ret_label, relocations, func_name):
             if type(stmt.exp) == type(Int(0)):
                 address = stmt.exp.inte
                 if address in functions:
-                    new_func_name = 'call_%s' % random_name
+                    counter = counter + 1
+                    new_func_name = 'fun%s' % str(counter)
                     label, new_function = copy_function(deepcopy(functions[address]), 
                                                         functions, 
                                                         get_ret_label(last_label),
@@ -126,8 +176,10 @@ def copy_function(data, functions, ret_label, relocations, func_name):
             #   the external function call
             else:
                 if 'ret' in str(stmt):
-                    bof_var = Variable(10, 'bof_%s' % random_name, Register(32))
-                    bof_vars.append('bof_%s' % random_name)                    
+                    counter = counter + 1
+                    new_name = str(counter)
+                    bof_var = Variable(10, 'bof_%s' % new_name, Register(32))
+                    bof_vars.append('bof_%s' % new_name)                    
                     bof_check = Move(bof_var, stmt.exp)
                     stmt.exp = Lab(ret_label)                    
                     instrs.append(bof_check)
@@ -137,54 +189,61 @@ def copy_function(data, functions, ret_label, relocations, func_name):
                 elif 'jmp mem:?u32' in str(stmt):
                     address = stmt.exp.address.inte
                     if address in relocations:
-                        function_path = '/home/davida/bap-0.7/bap/2.0/asm/%s.json' % relocations[address]
-                        # If the external function is defined we inline it
-                        try:
-                            imported_function = [parse_statement(stmt) for stmt in json.loads(open(function_path).read())]
-                            label, new_function = copy_function(imported_function, 
-                                                            functions, 
-                                                            ret_label,
-                                                            relocations,
-                                                            '%s_%s' % (relocations[address], random_name))       
+                        counter = counter + 1
+                        new_func_name = 'fun%s' % str(counter)
+                        copied_function = copy_imported_function(address, 
+                                                              functions, 
+                                                              ret_label, 
+                                                              relocations, 
+                                                              new_func_name)
+                        if copied_function:
+                            label, new_function = copied_function
                             for instr in new_function:
                                 instrs.append(instr)                                                                                   
-                                
-                        # If its not defined replace the jmp address with the
-                        # corresponding label        
-                        except:
+                        else:        
+                            # If its not defined fix ESP value.  
+                            # ESP = ESP + 4
+                            var = Variable(1, 'R_ESP', Register(32))  
+                            exp = BinOp('plus', 
+                                        Variable(1, 'R_ESP', Register(32)), 
+                                        Int(4,Register(32))
+                                        )
+                            instrs.append(Move(var, exp)) 
+                            # And replace the jmp address with the corresponding label    
                             stmt.exp = Lab(ret_label)
                             instrs.append(stmt)
                             
                 # Windows relocations
                 elif 'T_target' in str(stmt):
-                    address = T_target
-                    if address in relocations:
-                        function_path = '/home/davida/bap-0.7/bap/2.0/asm/%s.json' % relocations[address]
-                        # If the external function is defined we inline it
-                        try:
-                            imported_function = [parse_statement(stmt) for stmt in json.loads(open(function_path).read())]
-                            label, new_function = copy_function(imported_function, 
-                                                            functions, 
-                                                            ret_label,
-                                                            relocations,
-                                                            '%s_%s' % (relocations[address], random_name))       
-                                                            
-                            # Remove the last jmp from the ret
-                            # We are inlining the function so we don't need to
-                            # jump anywhere.                                                           
-                            for instr in new_function[:-1]:
-                                instrs.append(instr)                                                                                   
-                                
-                        # If its not defined fix ESP value.  
-                        except:
-                            # ESP = ESP + 4
-                            var = Variable(1, 'R_ESP', Register(32))
-                            exp = BinOp('plus', 
-                                        Variable(1, 'R_ESP', Register(32)), 
-                                        Int(4,Register(32))
-                                        )
-                            instrs.append(Move(var, exp))
-                            
+                    if type(T_target.exp) == type(Int(0)):
+                        address = T_target.exp.address.inte
+                        if address in relocations:
+                            counter = counter + 1
+                            new_func_name = 'fun%s' % str(counter)                        
+                            copied_function = copy_imported_function(address, 
+                                                                  functions, 
+                                                                  ret_label, 
+                                                                  relocations, 
+                                                                  new_func_name)
+                            if copied_function:
+                                label, new_function = copied_function
+                                # Remove the last jmp from the ret
+                                # We are inlining the function so we don't need to
+                                # jump anywhere.    
+                                for instr in new_function[:-1]:
+                                    instrs.append(instr)                                                                                  
+                            else:                                                           
+                                # If its not defined fix ESP value.  
+                                # ESP = ESP + 4
+                                var = Variable(1, 'R_ESP', Register(32))  
+                                exp = BinOp('plus', 
+                                            Variable(1, 'R_ESP', Register(32)), 
+                                            Int(4,Register(32))
+                                            )
+                                instrs.append(Move(var, exp)) 
+                                # And replace the jmp address with the corresponding labe    
+                                stmt.exp = Lab(ret_label)
+                                instrs.append(stmt)
                 # If none of the above cases happens just append the
                 # instruction without any changes.                            
                 else:
@@ -198,6 +257,7 @@ def copy_function(data, functions, ret_label, relocations, func_name):
     for copied_func in copied_functions:
          instrs = instrs + copied_func                                       
              
+    function_call_stack.pop()
     return first_label, instrs
                 
 def get_function(call_address,data):
@@ -252,6 +312,7 @@ def get_functions(data):
     Return a dict with all functions found of the form
     functions[function_address] = [instruction_list]
     """
+    print '[*] Getting functions'
     functions = {}
     for stmt in data:
         if '@asm "call' in str(stmt):
@@ -265,16 +326,19 @@ def get_functions(data):
             except:
                 pass
 
-                
+    print '[*] %d functions found' % len(functions)
     return functions
 
 def get_relocations(filename):
     """ 
     Return a dict with the relocations contained in a file
+    Taken and modified from 
+    https://github.com/eliben/pyelftools/blob/master/scripts/readelf.py
     """
+    print '[*] Getting relocations'
     relocations = {}
     if not filename:
-        print 'Relocations not found'
+        print '[*] Relocations not found'
         return relocations
 	    
     try:
@@ -308,7 +372,7 @@ def get_relocations(filename):
                     else:
                         symbol_name = symbol.name
                         relocations[offset] = bytes2str(symbol_name)
-                        
+    print '[*] Getting relocations DONE'                        
     return relocations
 	            			
 
@@ -330,8 +394,9 @@ def main():
 
     for elem in new_data:
         args.outfile.write(str(elem) + '\n')
-
-    print ' | '.join(['(%s:u32 == 0xcafecafe:u32)' % var for var in bof_vars])
+        
+    print '[*] Use the following postcondition on topredicate.' 
+    print '[*] \t' + '| '.join(['(%s:u32 == 0xcafecafe:u32)' % var for var in bof_vars])
     
 if __name__ == '__main__':
     main()  
