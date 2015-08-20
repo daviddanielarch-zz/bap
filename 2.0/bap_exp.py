@@ -217,7 +217,7 @@ class Let(Exp):
         self.e2 = e2        
         
     def __repr__(self):
-        return 'let "{0}" := {1} in {2}'.format(self.var,
+        return 'let {0} := {1} in {2}'.format(self.var,
                                                 self.e1,
                                                 self.e2)                                                                                      
             

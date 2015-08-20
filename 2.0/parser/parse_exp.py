@@ -82,7 +82,7 @@ def parse_concat(data):
     return Concat(le, re)
 
 def parse_let(data):
-    var = parse_variable(data['var'])
+    var = parse_var(data['var'])
     e1 = parse_expression(data['e1'])
     e2 = parse_expression(data['e2'])
     return Let(var, e1, e2)
@@ -102,5 +102,5 @@ expression_parse_functions['cast'] = parse_cast
 expression_parse_functions['ite'] = parse_ite
 expression_parse_functions['extract'] = parse_extract
 expression_parse_functions['concat'] = parse_concat
-expression_parse_functions['let'] = parse_let
+expression_parse_functions['let_exp'] = parse_let
 expression_parse_functions['unknown'] = parse_unknown

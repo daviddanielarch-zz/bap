@@ -86,7 +86,7 @@ class Halt(Statement):
 
     def __repr__(self):
         if self.attrs:
-            return 'halt {0} {1}'.format(self.exp, self.attr)
+            return 'halt {0} {1}'.format(self.exp, self.attrs)
         else:
             return 'halt {0}'.format(self.exp)
 

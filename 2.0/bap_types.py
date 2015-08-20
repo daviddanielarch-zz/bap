@@ -25,6 +25,10 @@ unop_types = {}
 unop_types['neg'] = '-'
 unop_types['not'] = '~'
 
+#BAP 0.8
+unop_types['uneg'] = '-'
+unop_types['unot'] = '~'
+
 cast_types = {}
 cast_types['cast_unsigned'] = 'pad'
 cast_types['cast_signed'] = 'extend'
@@ -65,8 +69,12 @@ class Register(BasicType):
             return 'u{0}'.format(str(self.bits))
 
 class TMem(BasicType):
-    def __init__(self, index_type=None):
+    def __init__(self, index_type=None, elem_type=None):
         self.index_type = index_type
-    
+        self.elem_type = elem_type
+        
     def __repr__(self):
-        return '?u{0}'.format(str(self.index_type))
+        if self.elem_type:
+            return 'u{0}?u{1}'.format(str(self.index_type),str(self.elem_type))
+        else:
+            return '?u{0}'.format(str(self.index_type))
