@@ -20,17 +20,17 @@ R_EAX:u32 =
   concat:[extract:31:8:[R_EAX:u32]][mem:?u32[R_ESI:u32, e_little]:u8]
 addr 0xb @asm "cmp    $0x0,%al"
 label pc_0xb
-T_t_8000:u8 = low:u8(R_EAX:u32) - 0:u8
+T_t_80:u8 = low:u8(R_EAX:u32) - 0:u8
 R_CF:bool = low:u8(R_EAX:u32) < 0:u8
 R_OF:bool =
-  high:bool((low:u8(R_EAX:u32) ^ 0:u8) & (low:u8(R_EAX:u32) ^ T_t_8000:u8))
-R_AF:bool = 0x10:u8 == (0x10:u8 & (T_t_8000:u8 ^ low:u8(R_EAX:u32) ^ 0:u8))
+  high:bool((low:u8(R_EAX:u32) ^ 0:u8) & (low:u8(R_EAX:u32) ^ T_t_80:u8))
+R_AF:bool = 0x10:u8 == (0x10:u8 & (T_t_80:u8 ^ low:u8(R_EAX:u32) ^ 0:u8))
 R_PF:bool =
-  ~low:bool(T_t_8000:u8 >> 7:u8 ^ T_t_8000:u8 >> 6:u8 ^ T_t_8000:u8 >> 5:u8 ^
-            T_t_8000:u8 >> 4:u8 ^ T_t_8000:u8 >> 3:u8 ^ T_t_8000:u8 >> 2:u8 ^
-            T_t_8000:u8 >> 1:u8 ^ T_t_8000:u8)
-R_SF:bool = high:bool(T_t_8000:u8)
-R_ZF:bool = 0:u8 == T_t_8000:u8
+  ~low:bool(T_t_80:u8 >> 7:u8 ^ T_t_80:u8 >> 6:u8 ^ T_t_80:u8 >> 5:u8 ^
+            T_t_80:u8 >> 4:u8 ^ T_t_80:u8 >> 3:u8 ^ T_t_80:u8 >> 2:u8 ^
+            T_t_80:u8 >> 1:u8 ^ T_t_80:u8)
+R_SF:bool = high:bool(T_t_80:u8)
+R_ZF:bool = 0:u8 == T_t_80:u8
 addr 0xd @asm "je     0x0000000000000015"
 label pc_0xd
 cjmp R_ZF:bool, 0x15:u32, "nocjmp0"

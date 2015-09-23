@@ -42,7 +42,7 @@ class Command(object):
         
 def get_functions(filename):
     cmd = Command(['get_functions','-r', filename])
-    cmd.run(2)
+    cmd.run(2000)
     
     return cmd.stdout, cmd.stderr, cmd.process.returncode
     
@@ -76,7 +76,7 @@ def check_bof(filename, data, start):
 
 
 def iltrans(filename, unroll_count, output_file):
-    cmd = Command(['iltrans','-il', filename, '-to-cfg', '-prune-cfg', '-rm-indirect-ast', '-unroll', str(unroll_count), '-rm-cycles', '-to-ast', '-pp-ast', output_file])
+    cmd = Command(['iltrans','-il', filename, '-to-cfg', '-rm-indirect-ast', '-prune-cfg', '-unroll', str(unroll_count), '-rm-cycles', '-to-ast', '-pp-ast', output_file])
     cmd.run(2)
     return cmd.stdout, cmd.stderr, cmd.process.returncode
 
@@ -118,6 +118,7 @@ def main(filename, debug):
         
     functions, error, retcode = get_functions(filename)
     if retcode:
+        print retcode
         print '[x] Error getting functions'
         print '\t %s' % error
         print '[x] Aborting'

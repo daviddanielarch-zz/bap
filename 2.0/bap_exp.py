@@ -15,7 +15,7 @@ class Variable(Exp):
         self.name = name
         
     def __repr__(self):
-        return '{0}:{1}'.format(self.name, self.type)
+        return '{0}_{1}:{2}'.format(self.name, self.id, self.type)
 
             
 class Int(Exp):

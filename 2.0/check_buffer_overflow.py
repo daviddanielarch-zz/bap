@@ -233,7 +233,7 @@ def copy_function(data, functions, ret_label, relocations, func_name,  bof_vars)
                     instrs.append(stmt)
                     
                 # Linux relocations    
-                elif 'jmp mem:?u32' in str(stmt):
+                elif re.match('jmp mem[_]*[0-9]*:\?u32', str(stmt)):
                     address = stmt.exp.address.inte
                     if address in relocations:
                         counter = counter + 1
@@ -263,9 +263,11 @@ def copy_function(data, functions, ret_label, relocations, func_name,  bof_vars)
                             
                 # Windows relocations
                 elif 'T_target' in str(stmt):
-                    if type(T_target.exp) == type(Int(0)):
+                    try:
                         address = T_target.exp.address.inte
+                        print 'reloc'
                         if address in relocations:
+                            print 'asd'
                             counter = counter + 1
                             new_func_name = 'fun%s' % str(counter)                        
                             copied_function = copy_imported_function(address, 
@@ -293,6 +295,8 @@ def copy_function(data, functions, ret_label, relocations, func_name,  bof_vars)
                                 # And replace the jmp address with the corresponding labe    
                                 stmt.exp = Lab(ret_label)
                                 instrs.append(stmt)
+                    except:
+                        instrs.append(stmt)
                 # If none of the above cases happens just append the
                 # instruction without any changes.                            
                 else:
